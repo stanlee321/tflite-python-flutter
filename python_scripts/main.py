@@ -8,13 +8,12 @@ class_id_to_name = {
     1: 'cardboard',
     2: 'glass',
     3: 'metal',
-    4: 'papaer',  # Assuming 'papaer' was a typo.
-    5: 'paper',
-    6: 'plastic',
+    4: 'paper',
+    5: 'plastic',
 }
 
 # Path to the .tflite model file
-model_path = './ssd_mobilenet_fine_tunned.tflite'
+model_path = '../assets/models/detect.tflite'
 
 # Load the TFLite model
 interpreter = tf.lite.Interpreter(model_path=model_path)
@@ -77,7 +76,7 @@ def postprocess_results(frame, output_data, threshold=0.5):
 
 
 # Open a handle to the default webcam
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
     print("Error: Could not open webcam.")
@@ -104,10 +103,10 @@ while True:
 
     # Now call the postprocess_results function with the frame and results
     # Postprocess the results
-    postprocess_results(frame, results)
+    postprocess_results(frame, results, threshold=0.7)
 
     # Display the resulting frame
-    cv2.imshow('Webcam Feed', frame)
+    cv2.imshow('Webcam Feed', frame, )
 
     # Press 'q' to exit the loop
     if cv2.waitKey(1) & 0xFF == ord('q'):

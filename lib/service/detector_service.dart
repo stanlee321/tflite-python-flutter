@@ -68,8 +68,11 @@ class _Command {
 /// are executed in a background isolate.
 /// This class just sends and receives messages to the isolate.
 class Detector {
-  static const String _modelPath = 'assets/models/ssd_mobilenet.tflite';
-  static const String _labelPath = 'assets/models/labelmap.txt';
+  // static const String _modelPath = 'assets/models/ssd_mobilenet.tflite';
+  // static const String _labelPath = 'assets/models/labelmap.txt';
+
+  static const String _modelPath = 'assets/models/detect.tflite';
+  static const String _labelPath = 'assets/models/labelmap_fine_tunned.txt';
 
   // static const String _modelPath = 'assets/models/ssd_mobilenet_fine_tunned.tflite';
   // static const String _labelPath = 'assets/models/labelmap_fine_tunned.txt';
@@ -177,7 +180,8 @@ class Detector {
 /// allows us to use plugins from background isolates.
 class _DetectorServer {
   /// Input size of image (height = width = 300)
-  static const int mlModelInputSize = 300;
+  // static const int mlModelInputSize = 300; // TODO
+  static const int mlModelInputSize = 320;
 
   /// Result confidence threshold
   static const double confidence = 0.5;
@@ -239,10 +243,12 @@ class _DetectorServer {
 
     convertCameraImageToImage(cameraImage).then((image) {
       if (image != null) {
-        if (Platform.isAndroid) {
-          image = image_lib.copyRotate(image, angle: 90);
-        }
+        // if (Platform.isAndroid) {
+        //   image = image_lib.copyRotate(image, angle: 90);
+        // }
 
+        image = image_lib.copyRotate(image, angle: 90);
+        
         final results = analyseImage(image, preConversionTime);
 
         print(results);
@@ -289,7 +295,7 @@ class _DetectorServer {
     final output = _runInference(imageMatrix);
 
     // Location
-    final locationsRaw = output.first.first as List<List<double>>;
+    final locationsRaw = output.first?.first as List<List<double>>;
 
     final List<Rect> locations = locationsRaw
         .map((list) => list.map((value) => (value * mlModelInputSize)).toList())
@@ -297,14 +303,14 @@ class _DetectorServer {
         .toList();
 
     // Classes
-    final classesRaw = output.elementAt(1).first as List<double>;
+    final classesRaw = output.elementAt(1)?.first as List<double>;
     final classes = classesRaw.map((value) => value.toInt()).toList();
 
     // Scores
-    final scores = output.elementAt(2).first as List<double>;
+    final scores = output.elementAt(2)?.first as List<double>;
 
     // Number of detections
-    final numberOfDetectionsRaw = output.last.first as double;
+    final numberOfDetectionsRaw = output.last?.first as double;
     final numberOfDetections = numberOfDetectionsRaw.toInt();
 
     final List<String> classification = [];
@@ -346,7 +352,7 @@ class _DetectorServer {
   }
 
   /// Object detection main function
-  List<List<Object>> _runInference(
+  List<List<Object>?> _runInference(
     List<List<List<num>>> imageMatrix,
   ) {
     // Set input tensor [1, 300, 300, 3]
@@ -359,11 +365,19 @@ class _DetectorServer {
     // Number of detections: [1]
     
     // Original setup
+    // final output = {
+    //   0: [List<List<num>>.filled(10, List<num>.filled(4, 0))],
+    //   1: [List<num>.filled(10, 0)],
+    //   2: [List<num>.filled(10, 0)],
+    //   3: [0.0],
+    // };
+
+
     final output = {
-      0: [List<List<num>>.filled(10, List<num>.filled(4, 0))],
-      1: [List<num>.filled(10, 0)],
-      2: [List<num>.filled(10, 0)],
-      3: [0.0],
+      0: [List<num>.filled(10, 0)],
+      1: [List.generate(10, (_) => List<num>.filled(4, 0.0))], // [List<List<num>>.filled(10, List<num>.filled(4, 0))],
+      2: [0.0],
+      3: [List<num>.filled(10, 0)],
     };
 
     // final output = {
@@ -393,6 +407,17 @@ class _DetectorServer {
 // };
 
     _interpreter!.runForMultipleInputs([input], output);
-    return output.values.toList();
+
+    // sort order to match the original model output
+    
+  final newOutput = {
+    0: output[1], // Locations: [1, 10, 4]
+    1: output[0], // Classes: [1, 10]
+    2: output[0], // Scores: [1, 10]
+    3: output[2], // Number of detections: [1]
+  };
+
+  return newOutput.values.toList();
+    // return output.values.toList();
   }
 }
