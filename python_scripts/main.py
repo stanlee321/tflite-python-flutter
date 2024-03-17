@@ -49,6 +49,8 @@ def postprocess_results(frame, output_data, threshold=0.5):
 
         # Get bounding box coordinates.
         box = detection_boxes[i]
+        
+        print("Boxes: ", box)   
         ymin, xmin, ymax, xmax = box
 
         # Convert to absolute coordinates.
@@ -76,7 +78,8 @@ def postprocess_results(frame, output_data, threshold=0.5):
 
 
 # Open a handle to the default webcam
-cap = cv2.VideoCapture(0)
+path = "./inputs/output_video.mp4"
+cap = cv2.VideoCapture(path)
 
 if not cap.isOpened():
     print("Error: Could not open webcam.")

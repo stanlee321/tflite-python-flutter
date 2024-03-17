@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
@@ -184,7 +185,7 @@ class _DetectorServer {
   static const int mlModelInputSize = 320;
 
   /// Result confidence threshold
-  static const double confidence = 0.5;
+  static const double confidence = 0.25;
   Interpreter? _interpreter;
   List<String>? _labels;
 
@@ -247,7 +248,7 @@ class _DetectorServer {
         //   image = image_lib.copyRotate(image, angle: 90);
         // }
 
-        image = image_lib.copyRotate(image, angle: 90);
+        // image = image_lib.copyRotate(image, angle: 90);
         
         final results = analyseImage(image, preConversionTime);
 
@@ -275,14 +276,27 @@ class _DetectorServer {
       height: mlModelInputSize,
     );
 
-    // Creating matrix representation, [300, 300, 3]
+    // // Creating matrix representation, [300, 300, 3]
+    // final imageMatrix = List.generate(
+    //   imageInput.height,
+    //   (y) => List.generate(
+    //     imageInput.width,
+    //     (x) {
+    //       final pixel = imageInput.getPixel(x, y);
+    //       return [pixel.r, pixel.g, pixel.b];
+    //     },
+    //   ),
+    // );
+
+    // Existing code for creating the matrix, modify it to include normalization
     final imageMatrix = List.generate(
       imageInput.height,
       (y) => List.generate(
         imageInput.width,
         (x) {
           final pixel = imageInput.getPixel(x, y);
-          return [pixel.r, pixel.g, pixel.b];
+          // Normalize each pixel component to be between 0 and 1
+          return [(pixel.r / 255.0), (pixel.g / 255.0), (pixel.b / 255.0)];
         },
       ),
     );
@@ -297,11 +311,36 @@ class _DetectorServer {
     // Location
     final locationsRaw = output.first?.first as List<List<double>>;
 
-    final List<Rect> locations = locationsRaw
-        .map((list) => list.map((value) => (value * mlModelInputSize)).toList())
-        .map((rect) => Rect.fromLTRB(rect[1], rect[0], rect[3], rect[2]))
-        .toList();
+    // final List<Rect> locations = locationsRaw
+    //     .map((list) => list.map((value) => (value * mlModelInputSize)).toList())
+    //     .map((rect) => Rect.fromLTRB(rect[1], rect[0], rect[3], rect[2]))
+    //     .toList();
+    // Assuming originalWidth and originalHeight represent the actual dimensions of the image
+    final int  originalWidth = image.width; // Use the width of the original image
+    final int  originalHeight = image.height; // Use the height of the original image
 
+    final List<Rect> locations = locationsRaw.map((list) {
+        double ymin = list[0];
+        double xmin = list[1];
+        double ymax = list[2];
+        double xmax = list[3];
+
+        // Scale normalized coordinates to the original image dimensions
+        double left =  xmin * originalWidth;
+        double top = ymin * originalHeight;
+        double right = xmax * originalWidth;
+        double bottom = ymax  * originalHeight;
+        
+        left = left - 0.3*left;
+        top = top - 0.6*top;
+
+        right = right - 0.3*right;
+        bottom = bottom - 0.3*bottom;
+        // Return the rect with adjusted coordinates
+        return Rect.fromLTRB(left, top, right, bottom);
+
+        // return Rect.fromLTRB(top, left, bottom, right);
+    }).toList();
     // Classes
     final classesRaw = output.elementAt(1)?.first as List<double>;
     final classes = classesRaw.map((value) => value.toInt()).toList();
@@ -412,7 +451,7 @@ class _DetectorServer {
     
   final newOutput = {
     0: output[1], // Locations: [1, 10, 4]
-    1: output[0], // Classes: [1, 10]
+    1: output[3], // Classes: [1, 10]
     2: output[0], // Scores: [1, 10]
     3: output[2], // Number of detections: [1]
   };

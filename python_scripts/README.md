@@ -23,3 +23,6 @@ Chnage your camera index in `main.py` if you have multiple cameras.
 cap = cv2.VideoCapture(1)
 
 ```
+
+
+ffmpeg -i inputs/IMG_8519.MOV -vf "scale=iw/5:ih/5" inputs/output_video.mp4
